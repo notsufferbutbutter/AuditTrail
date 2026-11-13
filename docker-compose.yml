@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile
     # Override with your registry image when preparing a deployment.
     image: ${API_IMAGE:-audittrail-api:latest}
+    env_file: .env
     ports:
       - "${API_PORT:-8000}:8000"
     restart: unless-stopped
