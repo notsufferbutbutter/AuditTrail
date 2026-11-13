@@ -1,72 +1,204 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { AppComponent } from './app.component';
 
-describe('Backend connection', () => {
+describe('Authentication and document access', () => {
+  let fixture: ComponentFixture<AppComponent>;
   let app: AppComponent;
   let http: HttpTestingController;
+  const credentials = { email: 'admin@example.com', password: 'test-password' };
+  const user = { email: credentials.email };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting()],
     });
-    app = TestBed.createComponent(AppComponent).componentInstance;
     http = TestBed.inject(HttpTestingController);
+    fixture = TestBed.createComponent(AppComponent);
+    app = fixture.componentInstance;
+    http.expectOne('/api/auth/session').flush(null, { status: 401, statusText: 'Unauthorized' });
+    await fixture.whenStable();
+    fixture.detectChanges();
   });
+
   afterEach(() => http.verify());
 
-  it('reports online after GET /health returns 200 and status OK', () => {
-    app.checkConnection();
-    expect(app.state()).toBe('checking');
-    const request = http.expectOne('/health');
-    expect(request.request.method).toBe('GET');
-    request.flush({ status: 'OK' });
-    expect(app.state()).toBe('online');
-  });
-
-  it('rejects an unexpected successful response', () => {
-    app.checkConnection();
-    http.expectOne('/health').flush({ status: 'unavailable' });
-    expect(app.state()).toBe('error');
-  });
-
-  it('reports a server failure and allows a successful retry', () => {
-    app.checkConnection();
-    http.expectOne('/health').flush(null, { status: 503, statusText: 'Unavailable' });
-    expect(app.state()).toBe('error');
-    app.checkConnection();
-    http.expectOne('/health').flush({ status: 'OK' });
-    expect(app.state()).toBe('online');
-  });
-
-  it('does not send duplicate requests while checking', () => {
-    app.checkConnection();
-    app.checkConnection();
-    http.expectOne('/health').flush({ status: 'OK' });
-  });
-
-  it('shows Backend Online in the page after clicking the button', () => {
-    const fixture = TestBed.createComponent(AppComponent);
+  async function login(): Promise<void> {
+    const pending = app.login(credentials);
+    const request = http.expectOne('/api/auth/login');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual(credentials);
+    request.flush(user);
+    await pending;
     fixture.detectChanges();
-    fixture.nativeElement.querySelector('button').click();
-    fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('button').disabled).toBe(true);
-    http.expectOne('/health').flush({ status: 'OK' });
-    fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('[role="status"]').textContent)
-      .toContain('Backend Online');
-    expect(fixture.nativeElement.querySelector('button').disabled).toBe(false);
+  }
+
+  it('shows editable, empty login fields for a signed-out user', () => {
+    const email = fixture.nativeElement.querySelector('#login-email') as HTMLInputElement;
+    expect(email.value).toBe('');
+    expect(email.readOnly).toBe(false);
+    expect(app.auth.user()).toBeNull();
   });
 
-  it('times out a request that never completes', () => {
+  it('submits the login form and shows the authenticated user', async () => {
+    for (const [name, value] of Object.entries(credentials)) {
+      const input = fixture.nativeElement.querySelector(`[name="${name}"]`) as HTMLInputElement;
+      input.value = value;
+      input.dispatchEvent(new Event('input'));
+    }
+    await fixture.whenStable();
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector('form').dispatchEvent(new Event('submit', { cancelable: true }));
+    const request = http.expectOne('/api/auth/login');
+    expect(request.request.body).toEqual(credentials);
+    request.flush(user);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-login')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain(user.email);
+    expect(fixture.nativeElement.textContent).toContain('Sign out');
+  });
+
+  it('keeps the user signed out when credentials are rejected', async () => {
+    const pending = app.login(credentials);
+    http.expectOne('/api/auth/login').flush(null, { status: 401, statusText: 'Unauthorized' });
+    await pending;
+    expect(app.auth.user()).toBeNull();
+    expect(app.error()).toBe('Incorrect email or password.');
+  });
+
+  it('explains login throttling without granting access', async () => {
+    const pending = app.login(credentials);
+    http.expectOne('/api/auth/login').flush(null, { status: 429, statusText: 'Too Many Requests' });
+    await pending;
+    expect(app.auth.user()).toBeNull();
+    expect(app.error()).toContain('Too many sign-in attempts');
+  });
+
+  it('reports unavailable authentication endpoints without granting access', async () => {
+    const pending = app.login(credentials);
+    http.expectOne('/api/auth/login').flush(null, { status: 503, statusText: 'Unavailable' });
+    await pending;
+    expect(app.auth.user()).toBeNull();
+    expect(app.error()).toContain('Sign in failed');
+    expect(app.busy()).toBeNull();
+  });
+
+  it('does not treat a malformed login response as an authenticated session', async () => {
+    const pending = app.login(credentials);
+    http.expectOne('/api/auth/login').flush({ status: 'OK' });
+    await pending;
+    expect(app.auth.user()).toBeNull();
+    expect(app.error()).toContain('Sign in failed');
+  });
+
+  it('restores a server session after a reload', async () => {
+    const pending = app.restoreSession();
+    http.expectOne('/api/auth/session').flush(user);
+    await pending;
+    expect(app.auth.user()).toEqual(user);
+  });
+
+  it('rejects document access before login and after logout, and allows it during a session', async () => {
+    let pending = app.checkDocuments();
+    http.expectOne('/api/documents').flush(null, { status: 401, statusText: 'Unauthorized' });
+    await pending;
+    expect(app.documentState()).toBe('denied');
+
+    await login();
+    pending = app.checkDocuments();
+    http.expectOne('/api/documents').flush([{ id: '1', name: 'Report.pdf' }]);
+    await pending;
+    fixture.detectChanges();
+    expect(app.documentState()).toBe('success');
+    expect(fixture.nativeElement.textContent).toContain('Report.pdf');
+
+    pending = app.logout();
+    const logout = http.expectOne('/api/auth/logout');
+    expect(logout.request.method).toBe('POST');
+    logout.flush(null, { status: 204, statusText: 'No Content' });
+    await pending;
+    expect(app.auth.user()).toBeNull();
+    expect(app.documents()).toEqual([]);
+
+    pending = app.checkDocuments();
+    http.expectOne('/api/documents').flush(null, { status: 401, statusText: 'Unauthorized' });
+    await pending;
+    expect(app.documentState()).toBe('denied');
+  });
+
+  it('reports a protection failure if documents are public', async () => {
+    const pending = app.checkDocuments();
+    http.expectOne('/api/documents').flush([]);
+    await pending;
+    expect(app.documentState()).toBe('error');
+    expect(app.documentMessage()).toContain('Protection failed');
+  });
+
+  it('clears a session when the document endpoint returns 401', async () => {
+    await login();
+    const pending = app.checkDocuments();
+    http.expectOne('/api/documents').flush(null, { status: 401, statusText: 'Unauthorized' });
+    await pending;
+    expect(app.auth.user()).toBeNull();
+    expect(app.documents()).toEqual([]);
+    expect(app.documentState()).toBe('denied');
+  });
+
+  it('reports a permission failure without treating 403 as a logout', async () => {
+    await login();
+    const pending = app.checkDocuments();
+    http.expectOne('/api/documents').flush(null, { status: 403, statusText: 'Forbidden' });
+    await pending;
+    expect(app.auth.user()).toEqual(user);
+    expect(app.documentState()).toBe('denied');
+  });
+
+  it('keeps the session visible if logout fails so the user can retry', async () => {
+    await login();
+    const pending = app.logout();
+    http.expectOne('/api/auth/logout').flush(null, { status: 503, statusText: 'Unavailable' });
+    await pending;
+    expect(app.auth.user()).toEqual(user);
+    expect(app.error()).toContain('Sign out failed');
+  });
+
+  it('treats a rejected logout as an already expired session', async () => {
+    await login();
+    const pending = app.logout();
+    http.expectOne('/api/auth/logout').flush(null, { status: 401, statusText: 'Unauthorized' });
+    await pending;
+    expect(app.auth.user()).toBeNull();
+    expect(app.error()).toBe('');
+  });
+
+  it('does not mistake an HTML fallback or malformed response for document access', async () => {
+    await login();
+    const pending = app.checkDocuments();
+    http.expectOne('/api/documents').flush({ status: 'OK' });
+    await pending;
+    expect(app.documentState()).toBe('error');
+  });
+
+  it('prevents overlapping authentication requests', async () => {
+    const first = app.login(credentials);
+    const second = app.login(credentials);
+    http.expectOne('/api/auth/login').flush(user);
+    await Promise.all([first, second]);
+    expect(app.busy()).toBeNull();
+  });
+
+  it('times out stalled requests and allows retrying', async () => {
     vi.useFakeTimers();
     try {
-      app.checkConnection();
-      const request = http.expectOne('/health');
-      vi.advanceTimersByTime(10001);
-      expect(app.state()).toBe('error');
+      const pending = app.checkDocuments();
+      const request = http.expectOne('/api/documents');
+      await vi.advanceTimersByTimeAsync(10001);
+      await pending;
       expect(request.cancelled).toBe(true);
+      expect(app.documentState()).toBe('error');
+      expect(app.busy()).toBeNull();
     } finally {
       vi.useRealTimers();
     }

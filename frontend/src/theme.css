@@ -1,0 +1,92 @@
+/* Semantic colors. Use foreground tokens for text on the matching background. */
+:root {
+  color-scheme: light;
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --radius: 0.375rem;
+
+  /* Page and surfaces */
+  --background: #f5f8f8;
+  --foreground: #172a36;
+  --card: #ffffff;
+  --card-foreground: var(--foreground);
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
+
+  /* Actions */
+  --primary: #286b65;
+  --primary-hover: #205852;
+  --primary-foreground: #ffffff;
+  --secondary: #e7f0ee;
+  --secondary-foreground: #245b55;
+  --accent: #edf4f2;
+  --accent-foreground: #245b55;
+
+  /* Supporting text and surfaces */
+  --muted: #eef2f3;
+  --muted-foreground: #596d77;
+
+  /* Feedback */
+  --destructive: #a13721;
+  --destructive-foreground: #ffffff;
+  --destructive-background: #fff4f1;
+  --success: #176b43;
+  --success-foreground: #ffffff;
+  --success-background: #eef8f2;
+  --warning: #845709;
+  --warning-foreground: #ffffff;
+  --warning-background: #fff8e6;
+
+  /* Form controls */
+  --border: #dce5e7;
+  --input: var(--border);
+  --input-background: #f7f9f9;
+  --ring: var(--primary);
+
+  /* Spartan sidebar and chart tokens */
+  --sidebar: var(--input-background);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+  --chart-1: #286b65;
+  --chart-2: #387bb0;
+  --chart-3: #8b62a8;
+  --chart-4: #b87519;
+  --chart-5: #bd564c;
+}
+
+/* Add class="dark" to <html> to use the dark theme. */
+:root.dark {
+  color-scheme: dark;
+  --background: #101b20;
+  --foreground: #e5edf0;
+  --card: #18272e;
+  --primary: #83c9ba;
+  --primary-hover: #a1d8cc;
+  --primary-foreground: #102d28;
+  --secondary: #263e40;
+  --secondary-foreground: #c2e5dc;
+  --accent: #213638;
+  --accent-foreground: #c2e5dc;
+  --muted: #23333c;
+  --muted-foreground: #a3b5be;
+  --destructive: #ffa58e;
+  --destructive-foreground: #401b12;
+  --destructive-background: #38231f;
+  --success: #8ed4aa;
+  --success-foreground: #132f20;
+  --success-background: #1c3329;
+  --warning: #edc46b;
+  --warning-foreground: #34280e;
+  --warning-background: #352e1e;
+  --border: #344850;
+  --input-background: #142228;
+  --chart-1: #83c9ba;
+  --chart-2: #78b5e3;
+  --chart-3: #bb9ad4;
+  --chart-4: #edc46b;
+  --chart-5: #ffa58e;
+}

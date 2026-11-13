@@ -1,0 +1,36 @@
+<div class="login-page">
+  <main class="login-main">
+    <div class="login-container">
+      <div class="login-brand" aria-label="AuditTrail">
+        <svg class="login-brand-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <rect width="32" height="32" rx="7" fill="currentColor" />
+          <path d="m9 16 4.5 4.5L23 11M9 10h5M18 23h5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <span>AuditTrail</span>
+      </div>
+      <section hlmCard class="login-card" aria-labelledby="login-title">
+        <h1 id="login-title" class="login-title">Sign in to AuditTrail</h1>
+        <p class="login-description">Use your work account to continue.</p>
+        <form class="login-form" #form="ngForm" (ngSubmit)="form.valid && submit()" [attr.aria-busy]="busy()">
+          <div>
+            <label hlmLabel for="login-email" class="login-label">Email</label>
+            <input hlmInput id="login-email" name="email" type="email" autocomplete="username"
+              required email [(ngModel)]="email" [disabled]="busy()" class="login-input" />
+          </div>
+          <div>
+            <label hlmLabel for="login-password" class="login-label">Password</label>
+            <input hlmInput id="login-password" name="password" type="password" autocomplete="current-password"
+              required [(ngModel)]="password" [disabled]="busy()" class="login-input" />
+          </div>
+          <button hlmBtn type="submit" class="login-button" [disabled]="busy() || !form.valid">
+            {{ busy() ? 'Please wait…' : 'Sign in' }}
+          </button>
+        </form>
+      </section>
+    </div>
+  </main>
+  <footer class="login-footer">
+    <span>AuditTrail</span>
+    <span>Document audit management</span>
+  </footer>
+</div>
