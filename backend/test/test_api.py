@@ -86,7 +86,7 @@ def test_public_config_for_the_browser(client):
     settings = client.app.state.settings
     assert config["clientId"] == settings.frontend_client_id
     assert config["scope"] == settings.api_scope
-    assert config["redirectUri"] == ORIGIN + "/"
+    assert config["redirectUri"] == ORIGIN + "/redirect.html"
 
 
 def test_api_responses_are_not_cached(client):

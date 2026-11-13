@@ -87,7 +87,7 @@ token validation with locally signed test tokens.
 Microsoft Entra registration (portal → App registrations):
 
 - Frontend registration: platform **Single-page application**, redirect URI =
-  `APP_ORIGIN` + `/`. Delegated permission `access_as_user` of the backend API.
+  `APP_ORIGIN` + `/redirect.html`. Delegated permission `access_as_user` of the backend API.
 - Backend registration: *Expose an API* with application ID URI
   `api://<backend client id>` and the scope `access_as_user`.
 - No client secret is needed (the browser uses PKCE).
@@ -106,7 +106,7 @@ Azure App Service settings:
 - Keep **one instance**: sessions live in the server's memory, so a restart or a
   second instance logs users out.
 
-Register `https://<your-app>/` as redirect URI in Entra before the first login.
+Register `https://<your-app>/redirect.html` as redirect URI in Entra before the first login.
 Every team member needs access to the Azure resource group and the GitHub repository
 (Azure portal → *Access control (IAM)*; GitHub → *Settings → Collaborators*).
 A container build is also possible with the `Dockerfile`.

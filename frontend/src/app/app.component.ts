@@ -48,8 +48,11 @@ export class AppComponent {
     this.error.set('');
     try {
       await action();
-    } catch {
-      this.error.set(errorMessage);
+    } catch (error) {
+      // MSAL errors carry an errorCode (e.g. user_cancelled, hash_empty_error) that names the cause.
+      const code = (error as { errorCode?: string })?.errorCode;
+      console.error(errorMessage, code ?? '', error);
+      this.error.set(code ? `${errorMessage} (${code})` : errorMessage);
     } finally {
       this.busy.set(false);
     }

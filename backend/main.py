@@ -68,7 +68,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "clientId": config.frontend_client_id,
             "authority": f"https://login.microsoftonline.com/{config.tenant_id}",
             "scope": config.api_scope,
-            "redirectUri": config.origin + "/",
+            "redirectUri": config.origin + "/redirect.html",
         }
 
     @app.post("/api/auth/login", response_model=User, dependencies=[Depends(same_origin)])
