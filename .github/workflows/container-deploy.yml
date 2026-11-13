@@ -1,0 +1,29 @@
+name: container-deploy
+on:
+  push:
+    branches: ['main']
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  ACR: audittrailacr4711
+  APP: audittrail-api
+  RG: audittrail-rg
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - run: az acr login --name $ACR
+      - run: docker build -t $ACR.azurecr.io/audittrail:${{ github.sha }} .
+      - run: docker push $ACR.azurecr.io/audittrail:${{ github.sha }}
+      - run: az containerapp update -n $APP -g $RG --image $ACR.azurecr.io/audittrail:${{ github.sha }}
