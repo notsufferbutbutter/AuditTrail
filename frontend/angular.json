@@ -18,10 +18,7 @@
             "outputPath": "dist/audittrail"
           },
           "configurations": {
-            "production": {
-              "outputHashing": "all",
-              "optimization": { "styles": { "inlineCritical": false } }
-            },
+            "production": { "outputHashing": "all" },
             "development": { "optimization": false, "sourceMap": true }
           },
           "defaultConfiguration": "production"

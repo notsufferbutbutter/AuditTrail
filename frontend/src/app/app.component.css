@@ -12,38 +12,6 @@
   color: var(--muted-foreground);
 }
 
-.documents {
-  width: calc(100% - 48px);
-  max-width: 600px;
-  margin: 32px auto;
-  padding: 24px;
-}
-
-.documents h2 {
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.documents p {
-  color: var(--muted-foreground);
-}
-
-.documents button {
-  align-self: start;
-}
-
-.success {
-  color: var(--success);
-}
-
-.denied {
-  color: var(--warning);
-}
-
-.error, .notice {
-  color: var(--destructive);
-}
-
 .notice {
   display: flex;
   flex-wrap: wrap;
@@ -51,6 +19,7 @@
   justify-content: center;
   gap: 16px;
   padding: 16px 24px;
+  color: var(--destructive);
   background: var(--destructive-background);
 }
 

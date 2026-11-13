@@ -2,42 +2,25 @@
   <div class="notice" role="alert">
     <span>{{ error() }}</span>
     @if (!auth.user()) {
-      <button hlmBtn variant="outline" type="button" [disabled]="!!busy()" (click)="restoreSession()">Retry session</button>
+      <button hlmBtn variant="outline" type="button" (click)="restoreSession()">Retry</button>
     }
   </div>
 }
 
-@if (busy() === 'session') {
+@if (loading()) {
   <p class="session-loading" role="status">Checking your session…</p>
 } @else {
   @if (auth.user(); as user) {
     <header class="app-header">
       <strong>AuditTrail</strong>
       <span>{{ user.email }}</span>
-      <button hlmBtn variant="outline" type="button" [disabled]="!!busy()" (click)="logout()">
-        {{ busy() === 'logout' ? 'Signing out…' : 'Sign out' }}
+      <button hlmBtn variant="outline" type="button" [disabled]="busy()" (click)="logout()">
+        {{ busy() ? 'Signing out…' : 'Sign out' }}
       </button>
     </header>
   } @else {
-    <app-login [busy]="!!busy()" (signIn)="login($event)" />
+    <app-login [busy]="busy()" (signIn)="login()" />
   }
 
-  <section hlmCard class="documents" aria-labelledby="documents-title">
-    <h2 id="documents-title">Document access</h2>
-    <p>{{ auth.user() ? 'Read documents using your current session.' : 'Verify that document access is denied while signed out.' }}</p>
-    <button hlmBtn type="button" [disabled]="!!busy()" (click)="checkDocuments()">
-      {{ busy() === 'documents' ? 'Checking…' : auth.user() ? 'Load documents' : 'Test protected endpoint' }}
-    </button>
-    <div role="status" aria-live="polite" aria-atomic="true" [attr.aria-busy]="busy() === 'documents'"
-      [class]="documentState()">
-      {{ documentMessage() }}
-    </div>
-    @if (documents().length) {
-      <ul>
-        @for (document of documents(); track document.id) {
-          <li>{{ document.name }}</li>
-        }
-      </ul>
-    }
-  </section>
+  <app-documents />
 }

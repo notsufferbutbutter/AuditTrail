@@ -1,0 +1,19 @@
+<section hlmCard class="documents" aria-labelledby="documents-title">
+  <h2 id="documents-title">Document access</h2>
+  <p>
+    {{ auth.user() ? 'Read documents using your current session.' : 'Check that document access is denied while signed out.' }}
+  </p>
+  <button hlmBtn type="button" (click)="load()">
+    {{ auth.user() ? 'Load documents' : 'Test protected endpoint' }}
+  </button>
+  <div role="status" aria-live="polite" [class.granted]="granted()" [class.denied]="!granted()">
+    {{ message() }}
+  </div>
+  @if (documents().length) {
+    <ul>
+      @for (document of documents(); track document.id) {
+        <li>{{ document.name }}</li>
+      }
+    </ul>
+  }
+</section>
