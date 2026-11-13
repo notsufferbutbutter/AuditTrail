@@ -53,9 +53,9 @@ jobs:
           name: application
       - uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_A8803671AFB341BE94CBECA271FF5AB6 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_4E6207502750490EA1BC05E3356C9A6F }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_80E2ACACE30345F2A97D825F78B478D2 }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - uses: azure/webapps-deploy@v3
         with:
           app-name: audittrail
