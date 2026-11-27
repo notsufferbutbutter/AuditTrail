@@ -65,7 +65,9 @@ class AuditRepository(Protocol):
         outcome: Outcome | None,
         limit: int,
         offset: int,
-    ) -> list[EventRecord]: ...
+    ) -> list[EventRecord]:
+        """Filter, then return newest received_at first before applying pagination."""
+        ...
 
     def count_failed_logins(
         self,
@@ -94,4 +96,6 @@ class AuditRepository(Protocol):
         status: AlertStatus | None,
         limit: int,
         offset: int,
-    ) -> list[AlertRecord]: ...
+    ) -> list[AlertRecord]:
+        """Filter, then return newest created_at first before applying pagination."""
+        ...

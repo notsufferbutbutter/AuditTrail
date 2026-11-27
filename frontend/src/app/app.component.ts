@@ -2,12 +2,12 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { AuthService } from './auth.service';
-import { Documents } from './components/documents/documents';
+import { AuditDashboard } from './components/audit-dashboard/audit-dashboard';
 import { Login } from './components/login/login';
 
 @Component({
   selector: 'app-root',
-  imports: [Login, Documents, HlmButton],
+  imports: [Login, AuditDashboard, HlmButton],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css',
 })
