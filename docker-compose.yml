@@ -1,4 +1,14 @@
 services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: audittrail
+      POSTGRES_USER: audittrail
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:5432:5432"   #only reachable from this computer
+    volumes:
+      - pgdata:/var/lib/postgresql/data
   api:
     build:
       context: .
@@ -19,3 +29,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+
+volumes:
+  pgdata:
