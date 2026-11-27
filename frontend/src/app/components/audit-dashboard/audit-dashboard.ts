@@ -79,6 +79,9 @@ export class AuditDashboard implements OnInit {
     if (error instanceof HttpErrorResponse && error.status === 401) {
       return 'Your session expired. Sign out and sign in again to view audit data.';
     }
+    if (error instanceof HttpErrorResponse && error.status === 403) {
+      return 'You are signed in, but you do not have the Admin role for audit data.';
+    }
     if (error instanceof HttpErrorResponse && error.status === 503) {
       return 'Audit storage is unavailable. The database may not be connected yet.';
     }
