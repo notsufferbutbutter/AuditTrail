@@ -25,6 +25,12 @@ describe('AuditDashboard', () => {
     return { events, alerts };
   }
 
+    // Wait until the component's async refresh() has finished, then render.
+  async function settle() {
+    await new Promise((resolve) => setTimeout(resolve));
+    fixture.detectChanges();
+  }
+
   it('loads and displays events and alerts', async () => {
     const { events, alerts } = expectDashboardRequests();
     events.flush([
@@ -57,8 +63,7 @@ describe('AuditDashboard', () => {
       },
     ]);
 
-    await fixture.whenStable();
-    fixture.detectChanges();
+    await settle();
 
     const text = fixture.nativeElement.textContent;
     expect(text).toContain('user.login');
@@ -72,8 +77,7 @@ describe('AuditDashboard', () => {
     events.flush([]);
     alerts.flush([]);
 
-    await fixture.whenStable();
-    fixture.detectChanges();
+    await settle();
 
     expect(fixture.nativeElement.textContent).toContain('No alerts to show.');
     expect(fixture.nativeElement.textContent).toContain('No events to show yet.');
@@ -87,8 +91,7 @@ describe('AuditDashboard', () => {
     );
     alerts.flush([]);
 
-    await fixture.whenStable();
-    fixture.detectChanges();
+    await settle();
 
     expect(fixture.nativeElement.textContent).toContain('Audit storage is unavailable.');
   });

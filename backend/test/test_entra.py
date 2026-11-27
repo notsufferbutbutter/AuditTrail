@@ -41,14 +41,14 @@ def make_token(key, **overrides):
 
 
 def test_valid_token(entra, key):
-    assert entra.identity(make_token(key)) == EMAIL
+    assert entra.identity(make_token(key)).email == EMAIL
 
 
 def test_valid_v1_token(entra, key):
     token = make_token(key, ver="1.0", appid=settings.frontend_client_id,
                        iss=f"https://sts.windows.net/{settings.tenant_id}/",
                        aud=f"api://{settings.backend_client_id}")
-    assert entra.identity(token) == EMAIL
+    assert entra.identity(token).email == EMAIL
 
 
 @pytest.mark.parametrize("overrides,status", [
@@ -79,3 +79,12 @@ def test_rejects_garbage(entra):
     with pytest.raises(HTTPException) as error:
         entra.identity("not-a-token")
     assert error.value.status_code == 401
+
+
+def test_roles_are_read_from_the_token(entra, key):
+    identity = entra.identity(make_token(key, roles=["Admin"]))
+    assert identity.roles == {"Admin"}
+
+
+def test_token_without_roles_has_no_roles(entra, key):
+    assert entra.identity(make_token(key)).roles == frozenset()

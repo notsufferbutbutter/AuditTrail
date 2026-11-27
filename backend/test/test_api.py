@@ -1,14 +1,17 @@
 """Integration tests: they call the real HTTP API and show login, logout and protection."""
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
+from backend.auth.entra import Identity
 from backend.auth.sessions import COOKIE
 from backend.config import Settings
 from backend.main import create_app
 
 ORIGIN = "https://audittrail.example.com"
 EMAIL = "person@example.com"
+ADMIN = Identity(EMAIL, frozenset({"Admin"}))
 BEARER = {"Authorization": "Bearer any-token"}
 
 
@@ -17,7 +20,7 @@ def client():
     app = create_app(Settings(origin=ORIGIN))
     with TestClient(app, base_url=ORIGIN, headers={"origin": ORIGIN}) as client:
         # Token checking has its own tests in test_entra.py, so accept every token here.
-        client.app.state.entra.identity = lambda *_: EMAIL
+        client.app.state.entra.identity = lambda *_: ADMIN
         yield client
 
 
@@ -36,8 +39,8 @@ def test_documents_need_login(client):
 def test_login_then_documents_then_logout(client):
     response = login(client)
     assert response.status_code == 200
-    assert response.json() == {"email": EMAIL}
-    assert client.get("/api/auth/session").json() == {"email": EMAIL}
+    assert response.json() == {"email": EMAIL, "roles": ["Admin"]}
+    assert client.get("/api/auth/session").json() == {"email": EMAIL, "roles": ["Admin"]}
     assert client.get("/api/documents").status_code == 200
     assert client.get("/api/documents").json() == []
 
@@ -91,3 +94,29 @@ def test_public_config_for_the_browser(client):
 
 def test_api_responses_are_not_cached(client):
     assert client.get("/api/documents").headers["cache-control"] == "no-store"
+
+
+def test_token_is_validated_on_every_request_not_only_at_login(client):
+    login(client)
+    assert client.get("/api/auth/session").status_code == 200
+
+    def reject(*_):
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    client.app.state.entra.identity = reject  # the stored token is no longer valid
+    assert client.get("/api/auth/session").status_code == 401
+    assert client.get("/v1/events").status_code == 401
+
+
+def test_user_without_admin_role_is_forbidden(client):
+    client.app.state.entra.identity = lambda *_: Identity("other@example.com", frozenset())
+    login(client)
+    assert client.get("/api/auth/session").status_code == 200
+    assert client.get("/v1/events").status_code == 403
+    assert client.get("/v1/alerts").status_code == 403
+
+
+def test_admin_role_opens_audit_routes(client):
+    login(client)
+    # This fixture has no database, so 503 (not 401/403) shows that authorization passed.
+    assert client.get("/v1/events").status_code == 503

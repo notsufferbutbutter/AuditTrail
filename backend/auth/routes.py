@@ -30,9 +30,9 @@ def login(request: Request, response: Response) -> User:
             detail="Microsoft access token required",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    email = request.app.state.entra.identity(token)
+    identity = request.app.state.entra.identity(token)
     config = request.app.state.settings
-    session_token = request.app.state.sessions.create(email)
+    session_token = request.app.state.sessions.create(token)
     response.set_cookie(
         COOKIE,
         session_token,
@@ -42,7 +42,7 @@ def login(request: Request, response: Response) -> User:
         httponly=True,
         samesite="lax",
     )
-    return User(email=email)
+    return User(email=identity.email, roles=sorted(identity.roles))
 
 
 @router.get("/session", response_model=User)

@@ -15,11 +15,13 @@ from backend.audit.schemas import (
     EventRecord,
     EventWrite,
 )
+from backend.auth.entra import Identity
 from backend.config import Settings
 from backend.main import create_app
 
 ORIGIN = "https://audittrail.example.com"
 EMAIL = "person@example.com"
+ADMIN = Identity(EMAIL, frozenset({"Admin"}))
 APPLICATION_ID = UUID("f0b7bcaa-37fb-4b3b-b24d-3e55596cf746")
 SERVICE_ID = UUID("77708f66-140e-4cb0-a953-cd62729b9038")
 OTHER_SERVICE_ID = UUID("1c4d2e0c-3158-46ae-aa81-7c62244b5b69")
@@ -189,7 +191,7 @@ class FakeAuditRepository:
 def client():
     app = create_app(Settings(origin=ORIGIN))
     with TestClient(app, base_url=ORIGIN, headers={"origin": ORIGIN}) as test_client:
-        test_client.app.state.entra.identity = lambda *_: EMAIL
+        test_client.app.state.entra.identity = lambda *_: ADMIN
         test_client.app.state.audit_repository = FakeAuditRepository()
         yield test_client
 
@@ -398,7 +400,21 @@ def test_sensitive_audit_api_responses_are_not_cached(client: TestClient):
 def test_dashboard_auth_precedes_storage_and_missing_storage_is_explicit():
     app = create_app(Settings(origin=ORIGIN))
     with TestClient(app, base_url=ORIGIN, headers={"origin": ORIGIN}) as client:
-        client.app.state.entra.identity = lambda *_: EMAIL
+        client.app.state.entra.identity = lambda *_: ADMIN
         assert client.get("/v1/events").status_code == 401
         login(client)
         assert client.get("/v1/events").status_code == 503
+
+
+def test_user_without_admin_role_cannot_read_events(client: TestClient):
+    client.app.state.entra.identity = lambda *_: Identity("other@example.com", frozenset())
+    login(client)
+    assert client.get("/v1/events").status_code == 403
+
+
+def test_api_key_is_never_logged(client: TestClient, caplog):
+    caplog.set_level("DEBUG")
+    ingest(client, event_payload("evt-log"))
+    client.post("/v1/ingest", headers={"X-API-Key": "at_leaked.leakedleakedleakedleaked"}, json=event_payload("evt-log2"))
+    assert API_KEY not in caplog.text
+    assert "leakedleakedleakedleaked" not in caplog.text

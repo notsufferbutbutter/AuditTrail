@@ -7,6 +7,7 @@ def test_settings_from_env(monkeypatch):
     monkeypatch.setenv("APP_ORIGIN", "http://localhost:4200")
     settings = Settings.from_env()
     assert settings.origin == "http://localhost:4200"
+    assert settings.admin_role == "Admin"
     assert not settings.secure_cookie
 
 
