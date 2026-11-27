@@ -3,11 +3,16 @@
 import jwt
 from fastapi import HTTPException
 from jwt import PyJWKClient
+from dataclasses import dataclass
 
 from backend.config import Settings
 
 REQUIRED_CLAIMS = ["exp", "iat", "nbf", "iss", "aud", "tid", "oid", "sub"]
 
+@dataclass(frozen=True)
+class Identity:
+    email: str
+    roles: frozenset[str]
 
 class EntraTokens:
     def __init__(self, settings: Settings):
@@ -17,8 +22,8 @@ class EntraTokens:
             timeout=10,
         )
 
-    def identity(self, token: str) -> str:
-        """Return the user's name if the token is valid, otherwise raise an HTTP error."""
+    def identity(self, token: str) -> Identity:
+        """Return the user's e-mail and app roles if the token is valid, otherwise raise an HTTP error."""
         config = self.settings
         try:
             # Entra can issue v1 or v2 tokens, which differ in issuer, audience and client claim.
@@ -57,7 +62,9 @@ class EntraTokens:
                     detail="Required access_as_user scope missing",
                 )
 
-            return claims.get("preferred_username") or claims.get("email") or claims["oid"]
+            email = claims.get("preferred_username") or claims.get("email") or claims["oid"]
+            roles = claims.get("roles", [])
+            return Identity(email=email, roles=frozenset(roles) if isinstance(roles, list) else frozenset())
         except jwt.PyJWKClientConnectionError:
             raise HTTPException(
                 status_code=503,
