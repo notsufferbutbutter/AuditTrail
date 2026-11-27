@@ -63,3 +63,10 @@ TEST_DATABASE_URL=postgresql://audittrail:<passwort>@localhost:5432/postgres pyt
 5. **Container App** (Umgebungsvariablen, keine Secrets):
    `DB_AUTH=managed-identity`, `PGHOST=<server>.postgres.database.azure.com`, `PGDATABASE=audittrail`, `PGUSER=audittrail-api`, `PGSSLMODE=require`.
    Bei einer benutzerzugewiesenen Identität zusätzlich `AZURE_CLIENT_ID=<client id>`.
+
+6. Zusätlich:
+Region North Europe statt Germany West Central. Begründung: Kapazitätsmangel in Belgium Central, Einschränkung des Testabos in Germany West Central.
+
+Login-Name audittrail-api-mi, angelegt mit pgaadauth_create_principal_with_oid(...) über die Objekt-ID. Begründung: Der Name audittrail-api war doppelt vergeben.
+
+Netzwerk: "Zugriff aus Azure-Diensten erlaubt, weil Container Apps (Consumption) keine festen ausgehenden IPs hat. Zielbild: VNet und Private Endpoint."
