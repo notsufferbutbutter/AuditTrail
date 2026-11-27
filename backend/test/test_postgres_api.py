@@ -12,6 +12,7 @@ from backend.config import Settings
 from backend.main import create_app
 from backend.repositories import ApiKeyRepository
 from backend.test.test_database import ADMIN_URL, database  # noqa: F401  (shared fixture)
+from backend.test.fakes import FakeLogAnalyticsIngestor
 
 pytestmark = pytest.mark.skipif(not ADMIN_URL, reason="TEST_DATABASE_URL not set")
 ORIGIN = "https://audittrail.example.com"
@@ -30,6 +31,7 @@ def setup(database):  # noqa: F811
     with TestClient(app, base_url=ORIGIN, headers={"origin": ORIGIN}) as client:
         client.app.state.entra.identity = lambda *_: Identity("person@example.com", frozenset({"Admin"}))
         client.app.state.audit_repository = PostgresAuditRepository(lambda: psycopg.connect(app_info))
+        client.app.state.log_analytics_ingestor = FakeLogAnalyticsIngestor()
         yield client, key, app_id
 
 

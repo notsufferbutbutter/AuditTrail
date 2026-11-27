@@ -7,7 +7,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from starlette.concurrency import run_in_threadpool
 
 from backend.audit.analysis import analyze_login_failure
-from backend.audit.dependencies import get_repository, require_source_key
+from backend.audit.dependencies import (
+    get_log_analytics_ingestor,
+    get_repository,
+    require_source_key,
+)
+from backend.audit.log_analytics import LogAnalyticsDeliveryError, LogAnalyticsIngestor
 from backend.audit.repository import ApiKeyScope, AuditRepository, EventConflict
 from backend.audit.schemas import (
     AlertRecord,
@@ -31,6 +36,7 @@ async def ingest_event(
     response: Response,
     scope: ApiKeyScope = Depends(require_source_key),
     repository: AuditRepository = Depends(get_repository),
+    log_analytics: LogAnalyticsIngestor = Depends(get_log_analytics_ingestor),
 ) -> EventRecord:
     if len(await request.body()) > MAX_INGEST_BYTES:
         raise HTTPException(status_code=413, detail="Event payload is too large")
@@ -74,6 +80,13 @@ async def ingest_event(
         and stored_event.actor.get("type") == "user"
     ):
         await analyze_login_failure(repository, stored_event)
+    try:
+        await run_in_threadpool(log_analytics.send_event, stored_event)
+    except LogAnalyticsDeliveryError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Could not forward event to Azure Log Analytics; retry the request",
+        ) from exc
     return stored_event
 
 

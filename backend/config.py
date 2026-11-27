@@ -14,11 +14,26 @@ class Settings:
     session_seconds: int = 3600
     # App role (Entra: audittrail-api -> App roles) that may read audit data.
     admin_role: str = "Admin"
+    log_analytics_endpoint: str | None = None
+    log_analytics_dcr_id: str | None = None
+    log_analytics_stream_name: str = "Custom-AuditTrail_CL"
 
     def __post_init__(self):
         parts = urlsplit(self.origin)
         if parts.scheme not in ("http", "https") or not parts.netloc or parts.path:
             raise ValueError("APP_ORIGIN must look like https://example.com (no path, no trailing slash)")
+        if bool(self.log_analytics_endpoint) != bool(self.log_analytics_dcr_id):
+            raise ValueError(
+                "Set both LOG_ANALYTICS_ENDPOINT and LOG_ANALYTICS_DCR_ID to enable Log Analytics"
+            )
+        if self.log_analytics_endpoint:
+            endpoint = urlsplit(self.log_analytics_endpoint)
+            if endpoint.scheme != "https" or not endpoint.netloc:
+                raise ValueError("LOG_ANALYTICS_ENDPOINT must be an HTTPS URL")
+
+    @property
+    def log_analytics_configured(self) -> bool:
+        return bool(self.log_analytics_endpoint and self.log_analytics_dcr_id)
 
     @property
     def api_scope(self) -> str:
@@ -38,4 +53,10 @@ class Settings:
             frontend_client_id=os.getenv("ENTRA_FRONTEND_CLIENT_ID", cls.frontend_client_id),
             backend_client_id=os.getenv("ENTRA_BACKEND_CLIENT_ID", cls.backend_client_id),
             session_seconds=int(os.getenv("SESSION_SECONDS", "3600")),
+            log_analytics_endpoint=os.getenv("LOG_ANALYTICS_ENDPOINT") or None,
+            log_analytics_dcr_id=os.getenv("LOG_ANALYTICS_DCR_ID") or None,
+            log_analytics_stream_name=os.getenv(
+                "LOG_ANALYTICS_STREAM_NAME",
+                "Custom-AuditTrail_CL",
+            ),
         )
