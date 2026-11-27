@@ -20,11 +20,21 @@ LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "db", ""}
 SAFE_SSLMODES = {"require", "verify-ca", "verify-full"}
 
 
+_credential = None
+
+
 def _entra_token() -> str:
-    from azure.identity import ManagedIdentityCredential  # only needed in Azure
-    client_id = os.getenv("AZURE_CLIENT_ID")  # set for a user-assigned identity
-    credential = ManagedIdentityCredential(client_id=client_id) if client_id else ManagedIdentityCredential()
-    return credential.get_token(ENTRA_DB_SCOPE).token
+    """Short-lived token for the managed identity; the credential caches and renews it."""
+    global _credential
+    if _credential is None:
+        from azure.identity import ManagedIdentityCredential  # only needed in Azure
+        client_id = os.getenv("AZURE_CLIENT_ID")  # set for a user-assigned identity
+        _credential = ManagedIdentityCredential(client_id=client_id) if client_id else ManagedIdentityCredential()
+    return _credential.get_token(ENTRA_DB_SCOPE).token
+
+
+def is_configured(env=os.environ) -> bool:
+    return env.get("DB_AUTH") == "managed-identity" or "DATABASE_URL" in env
 
 
 def conninfo(env=os.environ) -> str:
