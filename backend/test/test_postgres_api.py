@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.audit.postgres import PostgresAuditRepository
+from backend.auth.entra import Identity
 from backend.config import Settings
 from backend.main import create_app
 from backend.repositories import ApiKeyRepository
@@ -27,7 +28,7 @@ def setup(database):  # noqa: F811
         key = ApiKeyRepository(conn).create(app_id, "dev").plaintext
     app = create_app(Settings(origin=ORIGIN))
     with TestClient(app, base_url=ORIGIN, headers={"origin": ORIGIN}) as client:
-        client.app.state.entra.identity = lambda *_: "person@example.com"
+        client.app.state.entra.identity = lambda *_: Identity("person@example.com", frozenset({"Admin"}))
         client.app.state.audit_repository = PostgresAuditRepository(lambda: psycopg.connect(app_info))
         yield client, key, app_id
 

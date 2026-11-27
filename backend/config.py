@@ -12,6 +12,8 @@ class Settings:
     frontend_client_id: str = "0cb0559f-af7b-4744-a42f-181a5b118aa6"
     backend_client_id: str = "072934a6-6fa6-4a83-b2ef-ed86d55e6803"
     session_seconds: int = 3600
+    # App role (Entra: audittrail-api -> App roles) that may read audit data.
+    admin_role: str = "Admin"
 
     def __post_init__(self):
         parts = urlsplit(self.origin)

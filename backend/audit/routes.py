@@ -18,7 +18,7 @@ from backend.audit.schemas import (
     EventWrite,
     Outcome,
 )
-from backend.auth.dependencies import current_user
+from backend.auth.dependencies import require_admin
 
 router = APIRouter(prefix="/v1", tags=["audit"])
 MAX_INGEST_BYTES = 64 * 1024
@@ -80,7 +80,7 @@ async def ingest_event(
 @router.get(
     "/events",
     response_model=list[EventRecord],
-    dependencies=[Depends(current_user)],
+    dependencies=[Depends(require_admin)],
 )
 def list_events(
     repository: AuditRepository = Depends(get_repository),
@@ -106,7 +106,7 @@ def list_events(
 @router.get(
     "/events/{event_id}",
     response_model=EventRecord,
-    dependencies=[Depends(current_user)],
+    dependencies=[Depends(require_admin)],
 )
 def get_event(
     event_id: UUID,
@@ -121,7 +121,7 @@ def get_event(
 @router.get(
     "/alerts",
     response_model=list[AlertRecord],
-    dependencies=[Depends(current_user)],
+    dependencies=[Depends(require_admin)],
 )
 def list_alerts(
     repository: AuditRepository = Depends(get_repository),
@@ -143,7 +143,7 @@ def list_alerts(
 @router.get(
     "/alerts/{alert_id}",
     response_model=AlertRecord,
-    dependencies=[Depends(current_user)],
+    dependencies=[Depends(require_admin)],
 )
 def get_alert(
     alert_id: UUID,

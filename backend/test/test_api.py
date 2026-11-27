@@ -1,14 +1,17 @@
 """Integration tests: they call the real HTTP API and show login, logout and protection."""
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
+from backend.auth.entra import Identity
 from backend.auth.sessions import COOKIE
 from backend.config import Settings
 from backend.main import create_app
 
 ORIGIN = "https://audittrail.example.com"
 EMAIL = "person@example.com"
+ADMIN = Identity(EMAIL, frozenset({"Admin"}))
 BEARER = {"Authorization": "Bearer any-token"}
 
 
@@ -17,7 +20,7 @@ def client():
     app = create_app(Settings(origin=ORIGIN))
     with TestClient(app, base_url=ORIGIN, headers={"origin": ORIGIN}) as client:
         # Token checking has its own tests in test_entra.py, so accept every token here.
-        client.app.state.entra.identity = lambda *_: EMAIL
+        client.app.state.entra.identity = lambda *_: ADMIN
         yield client
 
 
@@ -36,8 +39,8 @@ def test_documents_need_login(client):
 def test_login_then_documents_then_logout(client):
     response = login(client)
     assert response.status_code == 200
-    assert response.json() == {"email": EMAIL}
-    assert client.get("/api/auth/session").json() == {"email": EMAIL}
+    assert response.json() == {"email": EMAIL, "roles": ["Admin"]}
+    assert client.get("/api/auth/session").json() == {"email": EMAIL, "roles": ["Admin"]}
     assert client.get("/api/documents").status_code == 200
     assert client.get("/api/documents").json() == []
 
