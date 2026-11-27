@@ -38,15 +38,11 @@ browser needs no CORS configuration. In development, Angular's proxy forwards
 
 ## Login and logout
 
-1. The browser logs in at Microsoft (MSAL, authorization code flow with PKCE) and
-   receives an access token for our API (scope `access_as_user`).
-2. `POST /api/auth/login` checks the token: Microsoft's signature, issuer, audience,
-   tenant, expiry, our frontend client and the scope. If valid, the server creates a
-   random session ID and stores it in memory (`backend/auth.py`).
-3. The ID is sent as cookie `audittrail_session` (HttpOnly, SameSite=Lax, Secure on HTTPS).
-   The Microsoft token is dropped by the browser; nothing is kept in local storage.
-4. Every protected endpoint uses the `current_user` dependency: no valid session → **401**.
-5. `POST /api/auth/logout` deletes the session on the server. The old cookie is useless afterwards.
+1. The browser logs in at Microsoft (MSAL, authorization code flow with PKCE) and receives an access token for our API (scope `access_as_user`).
+2. `POST /api/auth/login` validates the token. The server keeps it in memory and answers with a random session ID (cookie `audittrail_session`: HttpOnly, SameSite=Lax, Secure on HTTPS). The browser never keeps the Microsoft token.
+3. **Every protected endpoint validates the stored Microsoft token again** (`current_user`): signature, issuer, audience, tenant, expiry, our frontend client and the scope. Invalid or expired → **401**.
+4. Audit read routes additionally require the app role `Admin` from that token (`require_admin`) → **403** without it.
+5. `POST /api/auth/logout` deletes the session and with it the stored token. The Microsoft sign-in in the browser stays; the next login forces an account choice.
 
 ## Document interface
 
@@ -64,9 +60,7 @@ and `200 []` with login. Reading, saving, searching and deleting real documents
 | Another website triggers login/logout (CSRF) | POST requests must come from our own origin (`Origin` header) and the cookie is SameSite=Lax |
 | Script reads the session | HttpOnly cookie, no token in browser storage |
 | Secrets in Git | None needed: Entra IDs are public, no client secret; `.env` is git-ignored; deployment uses GitHub → Azure OIDC |
-
-Open points for later: roles per user (AuthorizationService), a shared session store
-before running more than one instance, and least-privilege access for the team in Azure.
+| Signed-in user reads audit data without permission | App role `Admin` from the validated token, checked on every audit read route (403 otherwise) |
 
 ## Quality and operations
 
