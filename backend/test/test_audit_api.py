@@ -15,9 +15,11 @@ from backend.audit.schemas import (
     EventRecord,
     EventWrite,
 )
+from backend.audit.log_analytics import LogAnalyticsDeliveryError
 from backend.auth.entra import Identity
 from backend.config import Settings
 from backend.main import create_app
+from backend.test.fakes import FakeLogAnalyticsIngestor
 
 ORIGIN = "https://audittrail.example.com"
 EMAIL = "person@example.com"
@@ -187,12 +189,26 @@ class FakeAuditRepository:
         return results[offset : offset + limit]
 
 
+class FailsOnceLogAnalyticsIngestor:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def send_event(self, event: EventRecord) -> None:
+        self.calls += 1
+        if self.calls == 1:
+            raise LogAnalyticsDeliveryError("test delivery failure")
+
+    def close(self) -> None:
+        pass
+
+
 @pytest.fixture
 def client():
     app = create_app(Settings(origin=ORIGIN))
     with TestClient(app, base_url=ORIGIN, headers={"origin": ORIGIN}) as test_client:
         test_client.app.state.entra.identity = lambda *_: ADMIN
         test_client.app.state.audit_repository = FakeAuditRepository()
+        test_client.app.state.log_analytics_ingestor = FakeLogAnalyticsIngestor()
         yield test_client
 
 
@@ -246,6 +262,32 @@ def test_ingest_derives_scope_and_received_at_on_server(client: TestClient):
     assert record["environment"] == "dev"
     assert record["service_id"] == str(SERVICE_ID)
     assert datetime.fromisoformat(record["received_at"].replace("Z", "+00:00")).tzinfo
+
+
+def test_ingest_forwards_minimal_event_fields_to_log_analytics(client: TestClient):
+    response = ingest(client, event_payload("evt-analytics"))
+
+    assert response.status_code == 201
+    log_record = client.app.state.log_analytics_ingestor.records[0]
+    assert log_record["EventId"] == "evt-analytics"
+    assert log_record["ActorId"] == "user-123"
+    assert log_record["TimeGenerated"] == response.json()["received_at"].replace("+00:00", "Z")
+    assert "metadata" not in log_record
+    assert "targets" not in log_record
+
+
+def test_ingestion_failure_returns_retryable_error_without_duplicate_event(client: TestClient):
+    sink = FailsOnceLogAnalyticsIngestor()
+    client.app.state.log_analytics_ingestor = sink
+    payload = event_payload("evt-retry-analytics")
+
+    first = ingest(client, payload)
+    retry = ingest(client, payload)
+
+    assert first.status_code == 503
+    assert retry.status_code == 200
+    assert sink.calls == 2
+    assert len(client.app.state.audit_repository.events) == 1
 
 
 @pytest.mark.parametrize(
@@ -404,6 +446,15 @@ def test_dashboard_auth_precedes_storage_and_missing_storage_is_explicit():
         assert client.get("/v1/events").status_code == 401
         login(client)
         assert client.get("/v1/events").status_code == 503
+
+
+def test_ingestion_is_rejected_if_log_analytics_is_not_configured():
+    app = create_app(Settings(origin=ORIGIN))
+    with TestClient(app, base_url=ORIGIN, headers={"origin": ORIGIN}) as client:
+        client.app.state.audit_repository = FakeAuditRepository()
+        response = ingest(client, event_payload("evt-no-analytics"))
+        assert response.status_code == 503
+        assert client.app.state.audit_repository.events == {}
 
 
 def test_user_without_admin_role_cannot_read_events(client: TestClient):

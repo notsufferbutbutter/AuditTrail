@@ -7,6 +7,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
 from backend.audit.postgres import PostgresAuditRepository
+from backend.audit.log_analytics import create_log_analytics_ingestor
 from backend.audit.routes import router as audit_router
 from backend.auth.dependencies import current_user
 from backend.auth.entra import EntraTokens
@@ -25,6 +26,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.settings = settings or Settings.from_env()
         app.state.sessions = Sessions(app.state.settings.session_seconds)
         app.state.entra = EntraTokens(app.state.settings)
+        app.state.log_analytics_ingestor = create_log_analytics_ingestor(app.state.settings)
+        if app.state.log_analytics_ingestor is None:
+            logger.warning("Log Analytics not configured; event ingestion will return 503")
+        else:
+            logger.info("Azure Monitor Logs Ingestion configured")
         # Only the real server (settings read from the environment) connects automatically;
         # tests pass explicit Settings and choose their own repository.
         if settings is None and is_configured():
@@ -33,7 +39,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         else:
             logger.warning("Audit storage not configured (set DB_AUTH or DATABASE_URL)")
         logger.info("AuditTrail started")
-        yield
+        try:
+            yield
+        finally:
+            if app.state.log_analytics_ingestor is not None:
+                app.state.log_analytics_ingestor.close()
 
     app = FastAPI(
         title="AuditTrail",

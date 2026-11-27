@@ -1,0 +1,8 @@
+AuditTrail_CL
+| where ReceivedAt >= ago(5m)
+| where Action == "user.login"
+| where Outcome == "failure"
+| where ActorType == "user"
+| summarize by ApplicationId, Environment, ServiceId, ActorId, EventId
+| summarize FailedLogins = count() by ApplicationId, Environment, ServiceId, ActorId
+| where FailedLogins >= 5

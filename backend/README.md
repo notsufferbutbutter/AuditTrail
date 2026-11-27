@@ -49,6 +49,76 @@ stage. The AuditTrail event API is under `/v1`.
 6. Authenticated dashboard clients read events and alerts with the `/v1/events`
    and `/v1/alerts` routes.
 
+## Azure Log Analytics
+
+The API sends a minimal event record to the existing Log Analytics workspace
+after saving it to PostgreSQL. Azure Monitor runs the KQL rule in
+`infra/repeated-login-failures.kql`; the backend also keeps its alert record for
+the dashboard. If Azure ingestion fails, the API returns `503` so the source can
+retry. Event IDs are deduplicated in the KQL rule.
+
+Deploy `infra/log-analytics.bicep` to resource group `audittrail-rg`. It creates
+the `AuditTrail_CL` table, a direct-ingestion data collection rule, a scheduled
+query alert, and the DCR-scoped `Monitoring Metrics Publisher` role assignment.
+First inspect the identity attached to the Container App:
+
+```bash
+az containerapp show \
+  --resource-group audittrail-rg \
+  --name audittrail-api \
+  --query identity \
+  --output json
+```
+
+Pass the **principal ID of the managed identity actually used by the app**. For
+a user-assigned identity, find it with
+`az identity show --ids <identity-resource-id> --query principalId --output tsv`.
+Do not assume the GitHub deployment identity is also the app's runtime identity.
+
+```bash
+az deployment group create \
+  --resource-group audittrail-rg \
+  --name audittrail-log-analytics \
+  --template-file infra/log-analytics.bicep \
+  --parameters runtimeIdentityPrincipalId=<runtime-identity-principal-id>
+```
+
+Get the generated endpoint and immutable DCR ID:
+
+```bash
+az deployment group show \
+  --resource-group audittrail-rg \
+  --name audittrail-log-analytics \
+  --query properties.outputs \
+  --output json
+```
+
+Set those values on the Container App:
+
+```bash
+az containerapp update \
+  --resource-group audittrail-rg \
+  --name audittrail-api \
+  --set-env-vars \
+    LOG_ANALYTICS_ENDPOINT=<ingestionEndpoint> \
+    LOG_ANALYTICS_DCR_ID=<dcrImmutableId> \
+    LOG_ANALYTICS_STREAM_NAME=Custom-AuditTrail_CL
+```
+
+Verify that an ingested event appears in `AuditTrail_CL`, then run:
+
+```kusto
+AuditTrail_CL
+| where ReceivedAt >= ago(5m)
+| where Action == "user.login" and Outcome == "failure" and ActorType == "user"
+| summarize by ApplicationId, Environment, ServiceId, ActorId, EventId
+| summarize FailedLogins = count() by ApplicationId, Environment, ServiceId, ActorId
+| where FailedLogins >= 5
+```
+
+The rule creates an Azure Monitor alert visible in the portal; no email or
+webhook action group is configured.
+
 ## PostgreSQL integration
 
 `audit/repository.py` is the contract for the PostgreSQL adapter. The adapter
