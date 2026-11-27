@@ -1,3 +1,5 @@
+"""In-memory browser session management."""
+
 import time
 from secrets import token_urlsafe
 from threading import Lock
