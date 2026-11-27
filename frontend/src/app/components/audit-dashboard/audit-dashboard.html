@@ -1,0 +1,122 @@
+<main class="dashboard" aria-labelledby="dashboard-title">
+  <div class="dashboard-heading">
+    <div>
+      <h1 id="dashboard-title">Security activity</h1>
+      <p>Recent audit events and alerts from your registered services.</p>
+    </div>
+    <button hlmBtn variant="outline" type="button" [disabled]="loading()" (click)="refresh()">
+      {{ loading() ? 'Refreshing…' : 'Refresh' }}
+    </button>
+  </div>
+
+  @if (error()) {
+    <div class="dashboard-error" role="alert">{{ error() }}</div>
+  }
+
+  @if (loading()) {
+    <p class="dashboard-status" role="status">Loading audit data…</p>
+  } @else if (!error()) {
+    <div class="summary-grid" aria-label="Current page summary">
+      <section hlmCard class="summary-card">
+        <span class="summary-label">Recent events</span>
+        <strong>{{ events().length }}</strong>
+      </section>
+      <section hlmCard class="summary-card">
+        <span class="summary-label">Alerts</span>
+        <strong>{{ alerts().length }}</strong>
+      </section>
+    </div>
+
+    <section hlmCard class="data-card" aria-labelledby="alerts-title">
+      <div class="section-heading">
+        <div>
+          <h2 id="alerts-title">Alerts</h2>
+          <p>Repeated login failures and other detected activity.</p>
+        </div>
+      </div>
+
+      @if (alerts().length) {
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Alert</th>
+                <th scope="col">Actor / service</th>
+                <th scope="col">Failures</th>
+                <th scope="col">Status</th>
+                <th scope="col">Last seen</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (alert of alerts(); track alert.id) {
+                <tr>
+                  <td>
+                    <strong>{{ alert.title }}</strong>
+                    <span class="secondary">{{ alert.environment }} · {{ alert.severity }}</span>
+                  </td>
+                  <td>
+                    <span>{{ alert.actor_id }}</span>
+                    <span class="secondary">{{ alert.service_id }}</span>
+                  </td>
+                  <td>{{ alert.failure_count }}</td>
+                  <td><span class="badge" [class.status-open]="alert.status === 'open'">{{ alert.status }}</span></td>
+                  <td>{{ alert.last_seen_at | date: 'short' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <p class="empty-state">No alerts to show.</p>
+      }
+    </section>
+
+    <section hlmCard class="data-card" aria-labelledby="events-title">
+      <div class="section-heading">
+        <div>
+          <h2 id="events-title">Recent events</h2>
+          <p>Showing up to the latest 50 events.</p>
+        </div>
+      </div>
+
+      @if (events().length) {
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Received</th>
+                <th scope="col">Action</th>
+                <th scope="col">Actor</th>
+                <th scope="col">Service / environment</th>
+                <th scope="col">Outcome</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (event of events(); track event.id) {
+                <tr>
+                  <td>{{ event.received_at | date: 'short' }}</td>
+                  <td>
+                    <strong>{{ event.action }}</strong>
+                    <span class="secondary">{{ event.event_id }}</span>
+                  </td>
+                  <td>{{ event.actor.id }}</td>
+                  <td>
+                    <span>{{ event.service_id }}</span>
+                    <span class="secondary">{{ event.environment }}</span>
+                  </td>
+                  <td>
+                    <span class="badge" [class.outcome-failure]="event.outcome === 'failure'">
+                      {{ event.outcome }}
+                    </span>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <p class="empty-state">No events to show yet. Send an event to the ingest API.</p>
+      }
+    </section>
+  }
+</main>

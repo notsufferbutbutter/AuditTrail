@@ -22,5 +22,7 @@
     <app-login [busy]="busy()" (signIn)="login()" />
   }
 
-  <app-documents />
+  @if (auth.user()) {
+    <app-audit-dashboard />
+  }
 }

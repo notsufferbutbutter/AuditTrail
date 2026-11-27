@@ -17,7 +17,7 @@ class FakeAuthService {
   logout = async () => this.user.set(null);
 }
 
-describe('Login, logout and document access', () => {
+describe('Login and dashboard access', () => {
   let fixture: ComponentFixture<AppComponent>;
   let auth: FakeAuthService;
   let http: HttpTestingController;
@@ -28,6 +28,16 @@ describe('Login, logout and document access', () => {
     fixture = TestBed.createComponent(AppComponent);
     await fixture.whenStable();
     fixture.detectChanges();
+    if (signedInUser) {
+      flushDashboard();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    }
+  }
+
+  function flushDashboard() {
+    http.expectOne('/v1/events?limit=50').flush([]);
+    http.expectOne('/v1/alerts?limit=50').flush([]);
   }
 
   function click(text: string) {
@@ -53,13 +63,17 @@ describe('Login, logout and document access', () => {
     expect(fixture.nativeElement.textContent).toContain('Sign in with Microsoft');
   });
 
-  it('shows the user and a sign out button after login', async () => {
+  it('shows the user and audit dashboard after login', async () => {
     await start(null);
     click('Sign in with Microsoft');
     await fixture.whenStable();
     fixture.detectChanges();
+    flushDashboard();
+    await fixture.whenStable();
+    fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('person@example.com');
     expect(fixture.nativeElement.textContent).toContain('Sign out');
+    expect(fixture.nativeElement.textContent).toContain('Security activity');
   });
 
   it('shows the login button again after logout', async () => {
@@ -68,24 +82,6 @@ describe('Login, logout and document access', () => {
     await fixture.whenStable();
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Sign in with Microsoft');
-  });
-
-  it('reports "access denied" when the server answers 401', async () => {
-    await start(null);
-    click('Test protected endpoint');
-    http.expectOne('/api/documents').flush(null, { status: 401, statusText: 'Unauthorized' });
-    await fixture.whenStable();
-    fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('Access denied (401)');
-  });
-
-  it('shows the documents when the server answers 200', async () => {
-    await start({ email: 'person@example.com' });
-    click('Load documents');
-    http.expectOne('/api/documents').flush([{ id: '1', name: 'Report.pdf' }]);
-    await fixture.whenStable();
-    fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('Access granted: 1 document(s).');
-    expect(fixture.nativeElement.textContent).toContain('Report.pdf');
+    expect(fixture.nativeElement.textContent).not.toContain('Security activity');
   });
 });
