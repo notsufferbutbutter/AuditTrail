@@ -6,12 +6,14 @@ from time import perf_counter
 from fastapi import Depends, FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
+from backend.audit.postgres import PostgresAuditRepository
 from backend.audit.routes import router as audit_router
 from backend.auth.dependencies import current_user
 from backend.auth.entra import EntraTokens
 from backend.auth.routes import router as auth_router
 from backend.auth.sessions import Sessions
 from backend.config import Settings
+from backend.db import is_configured
 
 logger = logging.getLogger("uvicorn.error")
 frontend_dir = Path(__file__).resolve().parent.parent / "frontend/dist/audittrail/browser"
@@ -23,6 +25,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.settings = settings or Settings.from_env()
         app.state.sessions = Sessions(app.state.settings.session_seconds)
         app.state.entra = EntraTokens(app.state.settings)
+        # Only the real server (settings read from the environment) connects automatically;
+        # tests pass explicit Settings and choose their own repository.
+        if settings is None and is_configured():
+            app.state.audit_repository = PostgresAuditRepository()
+            logger.info("Audit storage: PostgreSQL")
+        else:
+            logger.warning("Audit storage not configured (set DB_AUTH or DATABASE_URL)")
         logger.info("AuditTrail started")
         yield
 
