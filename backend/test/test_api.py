@@ -3,7 +3,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.auth import COOKIE
+from backend.auth.sessions import COOKIE
 from backend.config import Settings
 from backend.main import create_app
 
@@ -17,7 +17,7 @@ def client():
     app = create_app(Settings(origin=ORIGIN))
     with TestClient(app, base_url=ORIGIN, headers={"origin": ORIGIN}) as client:
         # Token checking has its own tests in test_entra.py, so accept every token here.
-        client.app.state.entra.identity = lambda token: EMAIL
+        client.app.state.entra.identity = lambda *_: EMAIL
         yield client
 
 
