@@ -9,7 +9,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import HTTPException
 
 from backend.config import Settings
-from backend.entra import EntraTokens
+from backend.auth.entra import EntraTokens
 
 settings = Settings(origin="https://audittrail.example.com")
 EMAIL = "person@example.com"
@@ -23,7 +23,7 @@ def key():
 @pytest.fixture
 def entra(key):
     entra = EntraTokens(settings)
-    entra.keys.get_signing_key_from_jwt = lambda token: SimpleNamespace(key=key.public_key())
+    entra.keys.get_signing_key_from_jwt = lambda *_: SimpleNamespace(key=key.public_key())
     return entra
 
 

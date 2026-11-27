@@ -1,4 +1,4 @@
-"""Check the Microsoft Entra access token that the browser sends when logging in."""
+"""Validate Microsoft Entra access tokens used at login."""
 
 import jwt
 from fastapi import HTTPException
@@ -22,7 +22,8 @@ class EntraTokens:
         config = self.settings
         try:
             # Entra can issue v1 or v2 tokens, which differ in issuer, audience and client claim.
-            # The version is read before verification only to choose the matching rules.
+            # The backend downloads Microsoft's public stamp sample and compares.
+            # If it doesn't match, the ticket is fake. This is the signature check.
             version = jwt.decode(token, options={"verify_signature": False}).get("ver")
             if version == "2.0":
                 issuer = f"https://login.microsoftonline.com/{config.tenant_id}/v2.0"
@@ -36,17 +37,35 @@ class EntraTokens:
                 raise jwt.InvalidTokenError("Unsupported token version")
 
             key = self.keys.get_signing_key_from_jwt(token).key
-            claims = jwt.decode(token, key, algorithms=["RS256"], audience=audience,
-                                issuer=issuer, options={"require": REQUIRED_CLAIMS})
-
-            if claims["tid"] != config.tenant_id or claims.get(client_claim) != config.frontend_client_id:
+            claims = jwt.decode(
+                token,
+                key,
+                algorithms=["RS256"],
+                audience=audience,
+                issuer=issuer,
+                options={"require": REQUIRED_CLAIMS},
+            )
+            if (
+                claims["tid"] != config.tenant_id
+                or claims.get(client_claim) != config.frontend_client_id
+            ):
                 raise jwt.InvalidTokenError("Unexpected tenant or client")
+
             if "access_as_user" not in claims.get("scp", "").split():
-                raise HTTPException(status_code=403, detail="Required access_as_user scope missing")
+                raise HTTPException(
+                    status_code=403,
+                    detail="Required access_as_user scope missing",
+                )
 
             return claims.get("preferred_username") or claims.get("email") or claims["oid"]
         except jwt.PyJWKClientConnectionError:
-            raise HTTPException(status_code=503, detail="Microsoft sign-in is temporarily unavailable") from None
+            raise HTTPException(
+                status_code=503,
+                detail="Microsoft sign-in is temporarily unavailable",
+            ) from None
         except (jwt.PyJWTError, ValueError, TypeError, KeyError):
-            raise HTTPException(status_code=401, detail="Invalid Microsoft access token",
-                                headers={"WWW-Authenticate": "Bearer"}) from None
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid Microsoft access token",
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from None
