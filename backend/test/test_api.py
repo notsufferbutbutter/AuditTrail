@@ -94,3 +94,29 @@ def test_public_config_for_the_browser(client):
 
 def test_api_responses_are_not_cached(client):
     assert client.get("/api/documents").headers["cache-control"] == "no-store"
+
+
+def test_token_is_validated_on_every_request_not_only_at_login(client):
+    login(client)
+    assert client.get("/api/auth/session").status_code == 200
+
+    def reject(*_):
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    client.app.state.entra.identity = reject  # the stored token is no longer valid
+    assert client.get("/api/auth/session").status_code == 401
+    assert client.get("/v1/events").status_code == 401
+
+
+def test_user_without_admin_role_is_forbidden(client):
+    client.app.state.entra.identity = lambda *_: Identity("other@example.com", frozenset())
+    login(client)
+    assert client.get("/api/auth/session").status_code == 200
+    assert client.get("/v1/events").status_code == 403
+    assert client.get("/v1/alerts").status_code == 403
+
+
+def test_admin_role_opens_audit_routes(client):
+    login(client)
+    # This fixture has no database, so 503 (not 401/403) shows that authorization passed.
+    assert client.get("/v1/events").status_code == 503

@@ -404,3 +404,17 @@ def test_dashboard_auth_precedes_storage_and_missing_storage_is_explicit():
         assert client.get("/v1/events").status_code == 401
         login(client)
         assert client.get("/v1/events").status_code == 503
+
+
+def test_user_without_admin_role_cannot_read_events(client: TestClient):
+    client.app.state.entra.identity = lambda *_: Identity("other@example.com", frozenset())
+    login(client)
+    assert client.get("/v1/events").status_code == 403
+
+
+def test_api_key_is_never_logged(client: TestClient, caplog):
+    caplog.set_level("DEBUG")
+    ingest(client, event_payload("evt-log"))
+    client.post("/v1/ingest", headers={"X-API-Key": "at_leaked.leakedleakedleakedleaked"}, json=event_payload("evt-log2"))
+    assert API_KEY not in caplog.text
+    assert "leakedleakedleakedleaked" not in caplog.text
